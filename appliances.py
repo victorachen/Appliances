@@ -1,4 +1,14 @@
-#to do: left off line 88
+#start implementing stuff in line 156
+
+
+#to do: put windows on this list -- and link to an external Gsheet for further details
+#to do: (1) troubleshoot instances where (make sure nothing crashes)
+#(1a): someone submits the form, but clicks none of the boxes
+#(1b): someone removes something that was never there in the first place
+#(1c): someone adds something that already exists in the txt msg
+#2: work in option to remove something from txt msg list
+
+
 #Goal: Provide Automated text messages to Rick and Victor, to let him know what units need what
 # (1) Pulls Data From Google Forms (Property Manager Input)
 # (2) Send automated text to Rick (perhaps email to managers?), whenever Google Forms are updated
@@ -21,8 +31,7 @@ d1 = {'Washer (Side by Side)':[],
         # 'Stairs Repaired/Painted':[],
         'Awning':[],
         # 'Windows':[],
-        'AC unit':[],
-        'All done! (Take Off Txt Msg List)':[]
+        'AC unit':[]
       }
 
 #any new rows at bottom of spreadsheet get lumped into this list
@@ -55,25 +64,107 @@ def abbr_complex(complex):
              }
         return d[complex]
 
+#Helper (for Filld2()) -- Given a Gsheet row, return which case it is
+#Case 1: Need Thing, no things done (to check off on)
+#case 2: don't need thing, things done (to check off on)
+#case 3: need thing, things done (to check off on)
+#row being: [timestamp,complex,unit,thingsneeded,person,thingsdone] *the Gsheet has to be in this EXACT order
+def entrytype(row):
+    #helper: remove all empty strings from the row
+    def skim(row):
+        return [x for x in row if x]
+    #helper: make sure row has at least length 4
+    def rowhasstuffinit(row):
+        if len(row)<4:
+            return False
+        return True
+
+    # helper: determine if row has any things needed
+    def things_needed(row):
+        for i in d1:
+            if i in row[3]:
+                return True
+        return False
+    #helper: determine if row has any things done
+    def things_done(row):
+        for i in d1:
+            if i in row[-1]:
+                return True
+        return False
+
+    row = skim(row)
+    if rowhasstuffinit(row):
+        if things_needed(row)==True and things_done(row)==False:
+            return 'Things Needed'
+        if things_needed(row) == False and things_done(row) == True:
+            return 'Things Done'
+        if things_needed(row) == True and things_done(row) == True:
+            return 'Things Needed & Things Done'
+    return 'Empty Row'
+
+#1a: things needed: if there is no existing entry, throw into the dictionary
+#(1b:Things Needed) if there is a new row updating a unit that already has an entry,
+#   helper function to check every item in the old entry, and add the new entries that don't already exist
+#2b things done: if there is no existing entry, do nothing
+#2a things done: if there is an existing entry, helper function to check every item in old entry, remove the necesary ones
+#3 if 'Empty Row', do nothing, keep iterating
+
 #First we must fill D2 to get the cleanest version.
 #For instance, if we have 3 rows on the Gsheet of the same unit, D2 will show only the most updated iteration
 def Filld2():
-        for i in sheet:
-                #only deal with rows with relevant information
-                if len(i[0]) > 15:
-                        time = i[0]
-                        unit = abbr_complex(i[1])+" "+i[2]
-                        thingsneeded = i[3]
-                        person = i[4]
-                # (1a) Throw everything in D2
-                        d2[unit] = thingsneeded
-        # (1b) Throw only the new rows into "NewRows" list
-                        if istimewithinlast5min(time):
-                                NewRows.append(i)
-                                if unit not in NewUnits:
-                                    NewUnits.append(unit)
-                                if person not in NewPeople:
-                                    NewPeople.append(person)
+    # helper
+    def isthereanexistingentry(unit):
+        if unit in d2:
+            return True
+        return False
+    #helper
+    def things_needed(row, unit):
+        thingsneeded = i[3]
+        # 1a: things needed: if there is no existing entry, throw into the dictionary
+        if not isthereanexistingentry(unit):
+            d2[unit] = thingsneeded
+        # (1b:Things Needed) if there is a new row updating a unit that already has an entry,
+        # check if new entry is in old list of todos, and add the new entries that don't already exist
+        else:
+            for new in thingsneeded:
+                if new not in d2[unit]:
+                    d2[unit].append(new)
+        return None
+    #helper
+    def things_done(row, unit):
+        thingsdone = i[-1]
+        # 2a things done: if there is an existing entry, check if new entry is in old list of todos, and remove those new entries
+        if isthereanexistingentry(unit):
+            for new in thingsdone:
+                if new in d2[unit]:
+                    d2[unit].remove(new)
+        # 2b things done: if there is no existing entry, do nothing
+        else:
+            return None
+
+    for i in sheet:
+        # only deal with rows with relevant information
+        if len(i[0]) > 15:
+            time = i[0]
+            unit = abbr_complex(i[1]) + " " + i[2]
+            if entrytype(i) == 'Things Needed':
+                things_needed(i, unit)
+                person = i[4]
+            if entrytype(i) == 'Things Done':
+                things_done(i, unit)
+                person = i[-2]
+            if entrytype(i) == 'Things Needed & Things Done':
+                things_needed(i, unit)
+                things_done(i, unit)
+                person = i[-2]
+            # [WE CAN KEEP THIS CODE] Throw only the new rows into "NewRows" list
+            if istimewithinlast5min(time):
+                NewRows.append(i)
+                if unit not in NewUnits:
+                    NewUnits.append(unit)
+                if person not in NewPeople:
+                    NewPeople.append(person)
+    return None
 
 #Only after we fill Dic2 can we fill Dic1
 def Filld1():
@@ -81,9 +172,11 @@ def Filld1():
         for todoitem in d1:
                 for unit in d2:
                         if todoitem in d2[unit]:
-                                d1[todoitem].append(unit)
-        del d1['All done! (Take Off Txt Msg List)']
+                                d1[
+                                    todoitem].append(unit)
 Filld1()
+# print(d2)
+# print(d1)
 
 #Construct txt msg (using d1)
 def header():
@@ -152,10 +245,6 @@ def readtxtfile():
     d = {'sid':sid,'token':token,'from':phone_from,'to':phone_to}
     return d
 
-def sendemail():
-    L = emailstomessage()
-    ezgmail.init()
-
 def calltwilio():
         # call twilio api to print
         L = numberstomessage()
@@ -179,4 +268,4 @@ def calltwilio():
         else:
             print('txt msg should not have sent: there are no updates so no need for a txt msg')
         return 'nothing'
-calltwilio()
+# calltwilio()
