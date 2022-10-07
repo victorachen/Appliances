@@ -1,7 +1,8 @@
-#start implementing stuff in line 156
+#next steps: submit a bunch of Gform entries, and see if the txt msg is generating what you want
+#Sept 9th: add foam to this list! add mini splits to list?, add granite to list
 
 
-#to do: put windows on this list -- and link to an external Gsheet for further details
+#to do: put windows on this list -- and link to an external Gsheet for further details, foaming, granite
 #to do: (1) troubleshoot instances where (make sure nothing crashes)
 #(1a): someone submits the form, but clicks none of the boxes
 #(1b): someone removes something that was never there in the first place
@@ -26,12 +27,14 @@ d1 = {'Washer (Side by Side)':[],
         'Fridge':[],
         'Stove':[],
         'Outside Cleanup':[],
-        'Glazing':[],
+        'ReGlazing':[],
         'Stairs':[],
         # 'Stairs Repaired/Painted':[],
         'Awning':[],
-        # 'Windows':[],
-        'AC unit':[]
+        # 'Windows':[] - expected date of arrival
+        'AC unit':[],
+        'Roof Foaming':[],
+        'Granite Countertops':[]
       }
 
 #any new rows at bottom of spreadsheet get lumped into this list
@@ -172,8 +175,7 @@ def Filld1():
         for todoitem in d1:
                 for unit in d2:
                         if todoitem in d2[unit]:
-                                d1[
-                                    todoitem].append(unit)
+                                d1[todoitem].append(unit)
 Filld1()
 # print(d2)
 # print(d1)
@@ -209,6 +211,40 @@ def txtmsg():
         s+= "https://forms.gle/pxtLTzNwjVGrUEZHA"
         return s
 print(txtmsg())
+
+for i in d1:
+    print(i)
+    print(d1[i])
+
+#Oct 6th firestore code baby!
+
+#helper: convert "Washer (Side by Side)" to "Washer_(Side_by_Side)"
+def reformat(string):
+    return string.replace(" ","_")
+
+def firestore():
+    import firebase_admin
+    from firebase_admin import credentials
+    from firebase_admin import firestore
+    cred = credentials.Certificate(r'C:\Users\Lenovo\PycharmProjects\firebase\venv\serviceaccountkey.json')
+    firebase_admin.initialize_app(cred)
+    db = firestore.client()
+    #to be deleted: this is only for initially setting up firestore
+    # for i in d1:
+    #     db.collection('Appliances').document(reformat(i)).set({"type": reformat(i)})
+
+    #first: delete all existing documents (Hierarchy: collection ('appliances') --> document ('washer/dryers') --> fields )
+    for i in d1:
+        db.collection('Appliances').document(reformat(i)).delete()
+    #second: (A) create new documents & (B) fill new docs with unit information (fields)
+    for i in d1:
+        db.collection('Appliances').document(reformat(i)).set({"type": reformat(i)})
+        for unit in d1[i]:
+            key = reformat(unit)
+            value = ''
+            db.collection('Appliances').document(reformat(i)).update({key:value})
+    print('successfully ran!')
+firestore()
 
 #return list of numbers to message
 def numberstomessage():
