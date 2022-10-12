@@ -21,8 +21,9 @@ os.chdir(r'C:\Users\Lenovo\PycharmProjects\Appliances')
 
 #We will have 2 dictionaries, the first of which is organized like such:
 #The second of which is organized in reverse order
-d1 = {'Washer (Side by Side)':[],
-        'Dryer (Side by Side)':[],
+#IF YOU UPDATE THIS, PLEASE BE SURE TO UPDATE THE GSHEET AS WELL, (2) Firestore code, (3) Firestore website on the gdrive
+d1 = {'Washer':[],
+        'Dryer':[],
         'Washer & Dryer (Stackable)':[],
         'Fridge':[],
         'Stove':[],
@@ -112,6 +113,7 @@ def entrytype(row):
 #2a things done: if there is an existing entry, helper function to check every item in old entry, remove the necesary ones
 #3 if 'Empty Row', do nothing, keep iterating
 
+
 #First we must fill D2 to get the cleanest version.
 #For instance, if we have 3 rows on the Gsheet of the same unit, D2 will show only the most updated iteration
 def Filld2():
@@ -120,9 +122,22 @@ def Filld2():
         if unit in d2:
             return True
         return False
+
+    #Oct 12 code: helper - breaks down "Washer (Side By Side), Dryer (Side by Side), Washer & Dryer (Stackable)" ->
+    #into an (iterable) list [Washer (Side By Side), Dryer (Side by Side), Washer & Dryer (Stackable)]
+    #separate based on commas
+    def stringtolist(s):
+        ls = s.split(",")
+        ls2 = []
+        for i in ls:
+            ls2.append(i.strip())
+        return ls2
+
     #helper
     def things_needed(row, unit):
-        thingsneeded = i[3]
+        #thingsneed looks something like: ['Fridge', 'Stove', 'Outside Cleanup', 'Glazing', 'Stairs']
+        thingsneeded = stringtolist(row[3])
+        print(thingsneeded)
         # 1a: things needed: if there is no existing entry, throw into the dictionary
         if not isthereanexistingentry(unit):
             d2[unit] = thingsneeded
@@ -135,7 +150,8 @@ def Filld2():
         return None
     #helper
     def things_done(row, unit):
-        thingsdone = i[-1]
+        # thingsdone looks something like: ['Fridge', 'Stove', 'Outside Cleanup', 'Glazing', 'Stairs']
+        thingsdone = stringtolist(row[5])
         # 2a things done: if there is an existing entry, check if new entry is in old list of todos, and remove those new entries
         if isthereanexistingentry(unit):
             for new in thingsdone:
@@ -174,11 +190,23 @@ def Filld1():
         Filld2()
         for todoitem in d1:
                 for unit in d2:
+                    if unit =='West 38':
                         if todoitem in d2[unit]:
-                                d1[todoitem].append(unit)
+                            print('success')
+                        else:
+                            print('not success:')
+                            print(todoitem)
+                            print('not in')
+                            print(d2[unit][0])
+                            print(todoitem==d2[unit][0])
+                    if todoitem in d2[unit]:
+                            d1[todoitem].append(unit)
+                    # else:
+                    #     print(todoitem + ' not in:')
+                    #     print(d2[unit])
 Filld1()
-# print(d2)
-# print(d1)
+print(d2)
+print(d1)
 
 #Construct txt msg (using d1)
 def header():
@@ -211,10 +239,6 @@ def txtmsg():
         s+= "https://forms.gle/pxtLTzNwjVGrUEZHA"
         return s
 print(txtmsg())
-
-for i in d1:
-    print(i)
-    print(d1[i])
 
 #Oct 6th firestore code baby!
 
